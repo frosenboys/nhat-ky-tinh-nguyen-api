@@ -1,0 +1,153 @@
+// ================================================
+// Prisma schema
+// ================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ================================================
+// ENUM
+// ================================================
+enum UserType {
+  GLOBAL
+  USER
+  GROUP
+}
+
+// ================================================
+// MODELS
+// ================================================
+
+model User {
+  studentId  String  @id
+  password   String
+  email      String?
+  unionGroup String? @db.VarChar(100)
+  fullName   String? @db.VarChar(100)
+  position   String? @db.VarChar(50)
+  avatarUrl  String? @db.VarChar(255)
+
+  points Int @default(0)
+
+  points_1 Int @default(0)
+  points_2 Int @default(0)
+  points_3 Int @default(0)
+  points_4 Int @default(0)
+  points_5 Int @default(0)
+
+  createdAt DateTime @default(now())
+
+  missionSubmissions MissionSubmission[]
+  newsAuthored       News[]              @relation("NewsAuthor")
+  newsLikes          NewsLike[]
+  newsComments       NewsComment[]
+}
+
+model Missions {
+  id          Int      @id @default(autoincrement())
+  missionName String
+  joined      Int?     @default(0)
+  status      String?  @db.VarChar(30)
+  for         String?  @db.VarChar(10)
+  createdAt   DateTime @default(now())
+
+  submissions MissionSubmission[]
+}
+
+model MissionSubmission {
+  id        Int      @id @default(autoincrement())
+  studentId String
+  missionId Int?
+  imageLink String?
+  note      String?
+  status    String?  @default("pending")
+  for       UserType @default(GLOBAL)
+
+  user    User      @relation(fields: [studentId], references: [studentId], onDelete: Cascade)
+  mission Missions? @relation(fields: [missionId], references: [id])
+
+  news News[]
+}
+
+// ==============================
+// NEWS SYSTEM
+// ==============================
+
+model News {
+  id        Int      @id @default(autoincrement())
+  authorId  String
+  title     String
+  content   String?
+  imageUrl  String?
+  createdAt DateTime @default(now())
+
+  // liên kết submission (optional)
+  submissionId Int?
+  submission   MissionSubmission? @relation(fields: [submissionId], references: [id])
+
+  // quan hệ với user
+  author User @relation("NewsAuthor", fields: [authorId], references: [studentId])
+
+  // like + comment
+  likes    NewsLike[]
+  comments NewsComment[]
+}
+
+model NewsLike {
+  id        Int      @id @default(autoincrement())
+  newsId    Int
+  userId    String
+  createdAt DateTime @default(now())
+
+  news News @relation(fields: [newsId], references: [id])
+  user User @relation(fields: [userId], references: [studentId])
+
+  @@unique([newsId, userId]) // 1 user chỉ được like 1 lần
+}
+
+model NewsComment {
+  id        Int      @id @default(autoincrement())
+  newsId    Int
+  userId    String
+  content   String
+  createdAt DateTime @default(now())
+
+  news News @relation(fields: [newsId], references: [id])
+  user User @relation(fields: [userId], references: [studentId])
+}
+
+// ================================================
+// Notifications
+// ================================================
+model Notifications {
+  id         Int      @id @default(autoincrement())
+  type       UserType @default(GLOBAL)
+  content    String
+  from       String?  @db.VarChar(50)
+  studentId  String?
+  unionGroup String?
+  createdAt  DateTime @default(now())
+}
+
+// ================================================
+// DigiMap
+// ================================================
+model digiMap {
+  id        Int      @id @default(autoincrement())
+  pinName   String?
+  joined    Int?
+  pinLink   String?
+  createdAt DateTime @default(now())
+}
+
+model main_news {
+  id    Int     @id @default(autoincrement())
+  link  String?
+  image String?
+}
