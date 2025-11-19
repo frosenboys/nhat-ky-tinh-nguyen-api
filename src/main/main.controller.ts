@@ -23,4 +23,5 @@ export class MainController {
   async getMainPage() {
     return this.appService.getMainPage();
   }
+
 }
