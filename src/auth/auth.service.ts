@@ -12,19 +12,20 @@ export class AuthService {
     const user = await this.prisma.user.findFirst({
       where: { studentId: dto.studentId },
     });
-    if (!user) throw new UnauthorizedException("Mã số đoàn viên không tồn tại");
+    if (!user) return { status: 0, message: 'Không tìm thấy mã đoàn viên' };
 
     const fixedHash = user.password.replace(/^\$2y\$/i, "$2b$");
 
     const isPasswordValid = await bcrypt.compare(dto.password, fixedHash);
 
-    if (!isPasswordValid) throw new UnauthorizedException("Mật khẩu không đúng");
+    if (!isPasswordValid) return { status: 0, message: 'Mật khẩu không đúng' };
 
 
     const payload = { sub: user.studentId, unionGroup: user.unionGroup };
     const access_token = await this.jwtService.signAsync(payload);
 
     return {
+      status: 1,
       access_token,
       user: {
         id: user.studentId,

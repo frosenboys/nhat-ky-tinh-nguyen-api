@@ -15,6 +15,7 @@ export class UserController {
     return this.userService.updateAvatar(req.user.sub, avatarUrl)
   }
 
+
   @UseGuards(JwtAuthGuard)
   @Post('password')
   changePassword(@Req() req, @Body() dto: UpdatePasswordDto) {

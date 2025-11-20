@@ -41,21 +41,19 @@ export class UserService {
   // ============================================================
   async changePassword(studentId: string, dto: UpdatePasswordDto) {
     const user = await this.prisma.user.findFirst({ where: { studentId } })
-    if (!user) throw new UnauthorizedException('Không tìm thấy người dùng')
+    if (!user) return { status: 0, message: 'Không tìm thấy người dùng' }
 
-    const valid = await bcrypt.compare(dto.oldPassword, user.password)
-    if (!valid) throw new UnauthorizedException('Mật khẩu cũ không đúng')
-    if (dto.oldPassword === dto.newPassword)
-      throw new BadRequestException('Mật khẩu mới không được trùng với mật khẩu cũ')
-    if (dto.newPassword.length < 6)
-      throw new BadRequestException('Mật khẩu mới phải có ít nhất 6 ký tự')
+    const fixedHash = user.password.replace(/^\$2y\$/i, "$2b$");
+
+    const valid = await bcrypt.compare(dto.oldPassword, fixedHash)
+    if (!valid) return { status: 0, message: 'Mật khẩu cũ không đúng' }
 
     const hashed = await bcrypt.hash(dto.newPassword, 10)
     await this.prisma.user.update({
       where: { studentId },
       data: { password: hashed },
     })
-    return { message: 'Password changed successfully' }
+    return { status: 1, message: 'Đổi mật khẩu thành công' }
   }
 
   // ============================================================
