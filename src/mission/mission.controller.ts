@@ -8,7 +8,9 @@ export class MissionController {
 
   @Get("/getAllMissions")
   async getAllMissions() {
-    return this.prisma.missions.findMany();
+    return this.prisma.missions.findMany({
+      orderBy: { id: 'asc' },
+    });
   }
   @Get("/getMissionbyId/:id")
   async getMissionById(@Param('id') id: string) {
