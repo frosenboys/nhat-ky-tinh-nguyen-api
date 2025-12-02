@@ -1,6 +1,5 @@
-import { Controller, Get, Post, Param, Body } from '@nestjs/common';
+import { Controller, Get, Param } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service'
-import { MissionUploadDto } from '../dto';
 
 @Controller('mission')
 export class MissionController {
@@ -10,6 +9,7 @@ export class MissionController {
   async getAllMissions() {
     return this.prisma.missions.findMany({
       orderBy: { id: 'asc' },
+      where: { status: { not: 'close' } },
     });
   }
   @Get("/getMissionbyId/:id")
