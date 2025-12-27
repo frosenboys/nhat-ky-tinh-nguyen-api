@@ -1,6 +1,5 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
 
 async function bootstrap() {
@@ -10,7 +9,9 @@ async function bootstrap() {
 
   app.enableCors({
     origin: [
-      'localhost'
+      'https://nhat-ky-tinh-nguyen.vercel.app',
+      'https://nktn.vercel.app',
+      'http://localhost:3001'
     ],
     methods: 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
     allowedHeaders: 'Content-Type, Authorization',
@@ -18,6 +19,7 @@ async function bootstrap() {
     preflightContinue: false,
   });
 
+  // 🔥 BẮT BUỘC — xử lý OPTIONS để tránh bị block
   app.use((req, res, next) => {
     res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
     res.header("Access-Control-Allow-Credentials", "true");
@@ -29,23 +31,6 @@ async function bootstrap() {
     }
     next();
   });
-
-  const config = new DocumentBuilder()
-    .setTitle('Cats example')
-    .setDescription('The cats API description')
-    .setVersion('1.0')
-    .addTag('cats')
-    .addBearerAuth({
-      type: 'http',
-      scheme: 'bearer',
-      bearerFormat: 'JWT',
-      name: 'JWT',
-      description: 'Enter JWT token',
-      in: 'header',
-    },)
-    .build();
-  const documentFactory = () => SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api', app, documentFactory);
 
   await app.listen(3000);
 }
