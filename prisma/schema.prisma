@@ -1,7 +1,4 @@
-// ================================================
-// Prisma schema
-// ================================================
-
+// Cấu hình kết nối
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,143 +8,245 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ================================================
-// ENUM
-// ================================================
-enum UserType {
-  GLOBAL
-  USER
-  GROUP
+// ==========================================
+// 1. ADMIN & AUTH
+// ==========================================
+model Admin {
+  id        Int       @id @default(autoincrement())
+  email     String    @unique
+  password  String    
+  fullName  String?
+  role      AdminRole @default(EDITOR)
+  isActive  Boolean   @default(true)
+  
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@map("admins")
 }
 
-// ================================================
-// MODELS
-// ================================================
-
-model User {
-  studentId  String  @id
-  password   String
-  email      String?
-  unionGroup String? @db.VarChar(100)
-  fullName   String? @db.VarChar(100)
-  position   String? @db.VarChar(50)
-  avatarUrl  String? @db.VarChar(255)
-
-  points Int @default(0)
-
-  points_1 Int @default(0)
-  points_2 Int @default(0)
-  points_3 Int @default(0)
-  points_4 Int @default(0)
-  points_5 Int @default(0)
-
-  createdAt DateTime @default(now())
-
-  missionSubmissions MissionSubmission[]
-  newsAuthored       News[]              @relation("NewsAuthor")
-  newsLikes          NewsLike[]
-  newsComments       NewsComment[]
+enum AdminRole {
+  SUPER_ADMIN
+  EDITOR
+  MODERATOR
 }
 
-model Missions {
+// ==========================================
+// 2. SYSTEM SETTINGS
+// ==========================================
+model SystemSetting {
+  id            Int      @id @default(1)
+
+  siteName      String   @default("Little Roses Foundation")
+  options       Json?    @default("{}")
+
+  updatedAt     DateTime @updatedAt
+
+  @@map("system_settings")
+}
+
+// ==========================================
+// 3. CATEGORY (Danh mục)
+// ==========================================
+model Category {
+  id            Int          @id @default(autoincrement())
+  name          String
+  slug          String       @unique
+  description   String?
+  
+  type          CategoryType
+  isActive      Boolean      @default(true)
+
+  projects      Project[]
+  posts         Post[]
+
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@map("categories")
+}
+
+enum CategoryType {
+  POST
+  PROJECT
+}
+
+// ==========================================
+// 4. PROJECTS 
+// ==========================================
+model Project {
+  id            Int      @id @default(autoincrement())
+  
+  // Info
+  title         String
+  slug          String   @unique
+  p_name        String   @unique
+  
+  summary       String?  @db.Text
+  content       String?  @db.Text
+  thumbnailUrl  String?
+  documentUrl   String?
+
+  // Finance
+  targetAmount  Decimal  @default(0) @db.Decimal(15, 2)
+  currentAmount Decimal  @default(0) @db.Decimal(15, 2)
+  
+  // Status
+  startDate     DateTime?
+  endDate       DateTime?
+  isUrgent      Boolean  @default(false)
+  status        ProjectStatus @default(ACTIVE)
+
+  // Relation
+  categoryId    Int?     
+  category      Category? @relation(fields: [categoryId], references: [id])
+  
+  images        ProjectImage[]
+  donations     Donation[]
+  volunteers    Volunteer[]
+  posts         Post[]
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([status])
+  @@map("projects")
+}
+
+enum ProjectStatus {
+  COMING_SOON
+  ACTIVE
+  COMPLETED
+  PAUSED
+}
+
+// Bảng phụ: Ảnh dự án
+model ProjectImage {
   id          Int      @id @default(autoincrement())
-  missionName String
-  joined      Int?     @default(0)
-  status      String?  @db.VarChar(30)
-  for         String?  @db.VarChar(10)
+  imageUrl    String
+  caption     String?
+  isFeatured  Boolean  @default(false)
+
+  // Relation (Phải đổi sang Int để khớp với Project)
+  projectId   Int      
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
   createdAt   DateTime @default(now())
 
-  submissions MissionSubmission[]
+  @@map("project_images")
 }
 
-model MissionSubmission {
-  id        Int      @id @default(autoincrement())
-  studentId String
-  missionId Int?
-  imageLink String?
-  note      String?
-  status    String?  @default("pending")
-  for       UserType @default(GLOBAL)
+// ==========================================
+// 5. DONATION (Quyên góp)
+// ==========================================
+model Donation {
+  id                   Int            @id @default(autoincrement())
+  amount               Int
+  donorName            String?        
+  message              String?        
+  
+  paymentCode          String         @unique 
+  gatewayTransactionId String?        @unique 
 
-  user    User      @relation(fields: [studentId], references: [studentId], onDelete: Cascade)
-  mission Missions? @relation(fields: [missionId], references: [id])
 
-  news News[]
+  // Relation
+  projectId            Int?           
+  project              Project?       @relation(fields: [projectId], references: [id])
+  
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+
+  @@map("donations")
 }
 
-// ==============================
-// NEWS SYSTEM
-// ==============================
+// ==========================================
+// 6. CONTENT (Tin tức & Tài liệu)
+// ==========================================
+model Post {
+  id            Int      @id @default(autoincrement())
+  
+  title         String
+  slug          String   @unique
+  summary       String?  @db.Text
+  content       String?  @db.Text
+  thumbnailUrl  String?
+  attachmentUrl String?
+  downloadCount Int      @default(0)
 
-model News {
-  id        Int      @id @default(autoincrement())
-  authorId  String
-  title     String
-  content   String?
-  imageUrl  String?
-  createdAt DateTime @default(now())
+  type          PostType @default(NEWS)
 
-  // liên kết submission (optional)
-  submissionId Int?
-  submission   MissionSubmission? @relation(fields: [submissionId], references: [id])
+  // Relation
+  categoryId    Int?
+  category      Category? @relation(fields: [categoryId], references: [id])
 
-  // quan hệ với user
-  author User @relation("NewsAuthor", fields: [authorId], references: [studentId])
+  projectId     Int?     
+  project       Project? @relation(fields: [projectId], references: [id])
 
-  // like + comment
-  likes    NewsLike[]
-  comments NewsComment[]
+  isPublished   Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("posts")
 }
 
-model NewsLike {
-  id        Int      @id @default(autoincrement())
-  newsId    Int
-  userId    String
-  createdAt DateTime @default(now())
-
-  news News @relation(fields: [newsId], references: [id])
-  user User @relation(fields: [userId], references: [studentId])
-
-  @@unique([newsId, userId]) // 1 user chỉ được like 1 lần
+enum PostType {
+  NEWS      
+  STORY     
+  DOCUMENT  
+  ACTIVITY  
 }
 
-model NewsComment {
-  id        Int      @id @default(autoincrement())
-  newsId    Int
-  userId    String
-  content   String
-  createdAt DateTime @default(now())
+// ==========================================
+// 7. USER INTERACTION
+// ==========================================
 
-  news News @relation(fields: [newsId], references: [id])
-  user User @relation(fields: [userId], references: [studentId])
+model Volunteer {
+  id          Int      @id @default(autoincrement())
+  fullName    String
+  email       String
+  phone       String
+  dob         DateTime?
+  address     String?
+  skills      String?   
+
+  status      VolunteerStatus @default(PENDING)
+
+  // Relation (Phải đổi sang Int)
+  projectId   Int?      
+  project     Project?  @relation(fields: [projectId], references: [id])
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("volunteers")
 }
 
-// ================================================
-// Notifications
-// ================================================
-model Notifications {
-  id         Int      @id @default(autoincrement())
-  type       UserType @default(GLOBAL)
-  content    String
-  from       String?  @db.VarChar(50)
-  studentId  String?
-  unionGroup String?
-  createdAt  DateTime @default(now())
+enum VolunteerStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
-// ================================================
-// DigiMap
-// ================================================
-model digiMap {
-  id        Int      @id @default(autoincrement())
-  pinName   String?
-  joined    Int?
-  pinLink   String?
-  createdAt DateTime @default(now())
+model Contact {
+  id            Int      @id @default(autoincrement())
+  fullName      String
+  email         String
+  phone         String?
+  subject       String?
+  message       String   @db.Text
+
+  status        ContactStatus @default(NEW)
+  replyMessage  String?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("contacts")
 }
 
-model main_news {
-  id    Int     @id @default(autoincrement())
-  link  String?
-  image String?
+enum ContactStatus {
+  NEW      
+  READ     
+  REPLIED  
+  IGNORED  
 }

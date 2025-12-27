@@ -1,40 +1,63 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ForbiddenException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
-import { LoginDto } from '../dto';
+import * as bcrypt from 'bcrypt';
+import { LoginDto } from './dto/auth.dto';
 
 @Injectable()
 export class AuthService {
   constructor(private prisma: PrismaService, private jwtService: JwtService) { }
 
+  // LOGIN
   async login(dto: LoginDto) {
-    const user = await this.prisma.user.findFirst({
-      where: { studentId: dto.studentId },
+    const user = await this.prisma.admin.findUnique({
+      where: { email: dto.email },
     });
-    if (!user) return { status: 0, message: 'Không tìm thấy mã đoàn viên' };
 
-    const fixedHash = user.password.replace(/^\$2y\$/i, "$2b$");
+    if (!user) {
+      throw new UnauthorizedException('Email hoặc mật khẩu không chính xác');
+    }
 
-    const isPasswordValid = await bcrypt.compare(dto.password, fixedHash);
+    if (!user.isActive) {
+      throw new ForbiddenException('Tài khoản của bạn đã bị khóa. Vui lòng liên hệ Admin.');
+    }
 
-    if (!isPasswordValid) return { status: 0, message: 'Mật khẩu không đúng' };
+    const isPasswordValid = await bcrypt.compare(dto.password, user.password);
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Email hoặc mật khẩu không chính xác');
+    }
 
+    const payload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role
+    };
 
-    const payload = { sub: user.studentId, unionGroup: user.unionGroup };
-    const access_token = await this.jwtService.signAsync(payload);
+    const accessToken = await this.jwtService.signAsync(payload);
 
     return {
-      status: 1,
-      access_token,
+      accessToken,
       user: {
-        id: user.studentId,
+        id: user.id,
         email: user.email,
         fullName: user.fullName,
-        unionGroup: user.unionGroup,
-        position: user.position,
-        avatarUrl: user.avatarUrl,
+        role: user.role,
       },
     };
+  }
+
+  // GET PROFILE
+  async getProfile(userId: number) {
+    return this.prisma.admin.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        fullName: true,
+        isActive: true,
+        createdAt: true,
+      },
+    });
   }
 }
